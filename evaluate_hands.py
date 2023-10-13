@@ -3,6 +3,8 @@ import math
 import random
 import time
 
+# bevore: 23.2 mcs
+
 class Card:
 	def __init__(self, suit, rank):
 		self.suit = suit # string
@@ -11,7 +13,8 @@ class Card:
 def make_hand():
 	hand = []
 	for i in range(5):
-		hand.append( deck.pop(math.floor( random.random()*len(deck) )) )
+		ID = deck.pop(math.floor( random.random()*len(deck) ))
+		hand.append( Card(math.floor(ID/13), ID%13) )
 	return hand
 
 def evaluate_hand(hand):
@@ -26,6 +29,10 @@ def evaluate_hand(hand):
 	sortedRanks.sort()
 	uniqueRanks = len(set(sortedRanks))
 	
+	# Check for a very common trick BEFORE hard evaluation
+	if uniqueRanks == 4:
+		return "Pair"
+	
 	# Check if straight
 	if uniqueRanks == 5:
 		jumps = 0
@@ -39,7 +46,7 @@ def evaluate_hand(hand):
 	
 	# Check if flush
 	for i in range(4):
-		if not(hand[i].suit is hand[4].suit):
+		if not(hand[i].suit == hand[4].suit):
 			flush = False
 			break
 	
@@ -50,17 +57,20 @@ def evaluate_hand(hand):
 		else:
 			return "Straight Flush"
 	
+	if flush:
+		return "Flush"
+	if straight:
+		return "Straight"
+	
+	if uniqueRanks == 5:
+		return "High Card"
+	
 	# This is just smart. Just marvel at this
 	if uniqueRanks == 2:
 		if (sortedRanks[1] == sortedRanks[3]):
 			return "Four of a Kind"
 		else:
 			return "Full House"
-	
-	if flush:
-		return "Flush"
-	if straight:
-		return "Straight"
 	
 	# Also smart, takes into account the "3 unique ranks" trick
 	if uniqueRanks == 3:
@@ -74,9 +84,6 @@ def evaluate_hand(hand):
 				return "3 of a Kind"
 			else:
 				return "Two Pair"
-	
-	if uniqueRanks == 4:
-		return "Pair"
 	
 	return "High Card"
 
@@ -95,22 +102,23 @@ timesGotten = {
 }
 suits = ["Spades", "Hearts", "Diamonds", "Clubs"]
 
-trials = 10000000
+trials = 25989600
 
 start = time.time()
 for t in range(trials):
 	deck = []
 	for i in range(52):
-		deck.append( Card(suits[math.floor(i/13)], i%13) )
+		#deck.append( Card(math.floor(i/13), i%13) )
+		deck.append(i)
 	hand = make_hand()
 	trick = evaluate_hand(hand)
 	timesGotten[trick] += 1
 	
-	if t % 250000 == 1:
+	if t % 500000 == 1:
 		print(f"{t} / {trials}")
 		endP = time.time()
 		secPerEval = (endP-start)/t
-		print(f"Average time to evaluate: {round(secPerEval * 1000000, 1)}μs")
+		print(f"Average time to evaluate: {round(secPerEval * 1000000, 2)}μs")
 		print(f"Average speed: {round(60/secPerEval)} evals / min")
 end = time.time()
 
@@ -118,5 +126,5 @@ for trick, times in timesGotten.items():
 	print(f"{trick} - {times}")
 
 secPerEval = (end-start)/trials
-print(f"Average time to evaluate: {round(secPerEval * 1000000, 1)}μs")
+print(f"Average time to evaluate: {round(secPerEval * 1000000, 2)}μs")
 print(f"Average speed: {round(60/secPerEval)} evals / min")
