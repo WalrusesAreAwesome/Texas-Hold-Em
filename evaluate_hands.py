@@ -1,6 +1,7 @@
-# Calculates how often one hand will evolve into others over the course of a game of Texas Hold Em, by playing millions of games.
+# Times the evaluation of hands
 import math
 import random
+import time
 
 class Card:
 	def __init__(self, suit, rank):
@@ -94,8 +95,9 @@ timesGotten = {
 }
 suits = ["Spades", "Hearts", "Diamonds", "Clubs"]
 
-trials = 25989600
+trials = 10000000
 
+start = time.time()
 for t in range(trials):
 	deck = []
 	for i in range(52):
@@ -104,12 +106,17 @@ for t in range(trials):
 	trick = evaluate_hand(hand)
 	timesGotten[trick] += 1
 	
-	if t % 100000 == 0:
+	if t % 250000 == 1:
 		print(f"{t} / {trials}")
+		endP = time.time()
+		secPerEval = (endP-start)/t
+		print(f"Average time to evaluate: {round(secPerEval * 1000000, 1)}μs")
+		print(f"Average speed: {round(60/secPerEval)} evals / min")
+end = time.time()
 
 for trick, times in timesGotten.items():
 	print(f"{trick} - {times}")
-#hand = [Card("Spades",0), Card("Spades",9), Card("Spades",10), Card("Spades",11), Card("Spades",12)]
-#print(evaluate_hand(hand))
 
-
+secPerEval = (end-start)/trials
+print(f"Average time to evaluate: {round(secPerEval * 1000000, 1)}μs")
+print(f"Average speed: {round(60/secPerEval)} evals / min")
