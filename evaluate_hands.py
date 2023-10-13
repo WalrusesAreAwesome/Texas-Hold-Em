@@ -62,9 +62,6 @@ def evaluate_hand(hand):
 	if straight:
 		return "Straight"
 	
-	if uniqueRanks == 5:
-		return "High Card"
-	
 	# This is just smart. Just marvel at this
 	if uniqueRanks == 2:
 		if (sortedRanks[1] == sortedRanks[3]):
