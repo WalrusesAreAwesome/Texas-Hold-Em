@@ -2,7 +2,7 @@
 # Notes: This counts hands by "use." I.e. your trick must use your cards
 import math
 import random
-
+import time
 
 class Card:
 	def __init__(self, suit, rank, inHand):
@@ -12,9 +12,8 @@ class Card:
 
 
 def draw_card(inHand):
-	card = deck.pop( math.floor(random.random()*len(deck)) )
-	if inHand:
-		card.inHand = True
+	ID = deck.pop(math.floor( random.random()*len(deck) ))
+	card = Card(math.floor(ID/13), ID%13, inHand)
 	return card
 
 
@@ -23,7 +22,7 @@ Trick - Need to check hole
 
 RF - no
 SF - no
-4K - no
+4K - yes
 FH - no
 St - no
 Fl - no
@@ -46,6 +45,10 @@ def evaluate_hand(hand):
 	sortedRanks.sort()
 	uniqueRanks = len(set(sortedRanks))
 	
+	# Check for a very common trick BEFORE hard evaluation
+	if uniqueRanks == 4:
+		return "Pair"
+	
 	# Check if straight
 	if uniqueRanks == 5:
 		jumps = 0
@@ -59,7 +62,7 @@ def evaluate_hand(hand):
 	
 	# Check if flush
 	for i in range(4):
-		if not(hand[i].suit is hand[4].suit):
+		if not(hand[i].suit == hand[4].suit):
 			flush = False
 			break
 	
@@ -70,17 +73,17 @@ def evaluate_hand(hand):
 		else:
 			return "Straight Flush"
 	
+	if flush:
+		return "Flush"
+	if straight:
+		return "Straight"
+	
 	# This is just smart. Just marvel at this
 	if uniqueRanks == 2:
 		if (sortedRanks[1] == sortedRanks[3]):
 			return "Four of a Kind"
 		else:
 			return "Full House"
-	
-	if flush:
-		return "Flush"
-	if straight:
-		return "Straight"
 	
 	# Also smart, takes into account the "3 unique ranks" trick
 	if uniqueRanks == 3:
@@ -94,9 +97,6 @@ def evaluate_hand(hand):
 				return "3 of a Kind"
 			else:
 				return "Two Pair"
-	
-	if uniqueRanks == 4:
-		return "Pair"
 	
 	return "High Card"
 
@@ -116,6 +116,23 @@ def save(evolutions):
 	f.close()
 
 
+def load(fName):
+	evoTable = [[], [], []]
+	f = open(fName, "r")
+	evoTxt = f.read()
+	f.close()
+	evo = evoTxt.split("\n\n")
+	evo.pop(-1)
+	for i in range(len(evo)):
+		evo[i] = evo[i].split("\n")
+		for j in range(len(evo[i])):
+			evo[i][j] = evo[i][j].split(" ")
+			evo[i][j].pop(-1)
+			for k in range(len(evo[i][j])):
+				evo[i][j][k] = int(evo[i][j][k])
+	return evo
+
+
 trickRank = {
 	"Royal Flush": 0,
 	"Straight Flush": 1,
@@ -128,7 +145,6 @@ trickRank = {
 	"Pair": 8,
 	"High Card": 9
 }
-suits = ["Spades", "Hearts", "Diamonds", "Clubs"]
 
 #    ENDING
 #  
@@ -139,35 +155,84 @@ suits = ["Spades", "Hearts", "Diamonds", "Clubs"]
 # T
 # 
 
+evolutions = load("evolutions.txt")
+print(evolutions)
+"""
 tenZeroes = [0,0,0,0,0,0,0,0,0,0]
-evolutions = [[tenZeroes]]
+evolutions = [[tenZeroes.copy()]]
 for i in range(2):
 	evolutions.append([])
 	for j in range(10):
-		evolutions[i+1].append(tenZeroes)
-
-trials = 10000
-
+		evolutions[i+1].append(tenZeroes.copy())
+"""
+# Currently: 64.5μs per game, or 930k / min
+trials = 9000000
+start = time.time()
 for t in range(trials):
 	# Init
+	history = [0]
 	deck = []
-	for i in range(52):
-		deck.append( Card(suits[math.floor(i/13)], i%13, False) )
 	hand = []
 	river = []
+	# Create deck
+	for i in range(52):
+		deck.append(i)
 	# Give the hand 2, give the River 3
 	for i in range(2):
 		hand.append(draw_card(True))
 	for i in range(3):
 		river.append(draw_card(False))
+		
+	# Round 1
 	toCheck = [hand + river]
-	best = 0
+	best = 10
 	for h in toCheck:
 		trick = evaluate_hand(h)
-		best = max(best, trickRank[trick])
+		best = min(best, trickRank[trick])
+	history.append(best)
+	# Round 2
+	river.append(draw_card(False))
+	toCheck = []
+	for i in range(6):
+		allCards = hand + river
+		allCards.pop(i)
+		toCheck.append(allCards)
+	best = 10
+	for h in toCheck:
+		trick = evaluate_hand(h)
+		best = min(best, trickRank[trick])
+	history.append(best)
+	# Round 3
+	river.append(draw_card(False))
+	toCheck = []
+	for i in range(5):
+		riverAdd = river.copy()
+		riverAdd.pop(i)
+		for j in range(i+2):
+			allCards = hand + riverAdd
+			allCards.pop(j)
+			toCheck.append(allCards)
+	best = 10
+	for h in toCheck:
+		trick = evaluate_hand(h)
+		best = min(best, trickRank[trick])
+	history.append(best)
 	
-	if t % 100000 == 0:
+	# Update evolutions
+	for i in range(3):
+		evolutions[i][history[i]][history[i+1]] += 1
+	
+	if t % 100000 == 1:
 		print(f"{t} / {trials}")
+		endP = time.time()
+		secPerEval = (endP-start)/t
+		print(f"Average time to evaluate: {round(secPerEval * 1000000, 2)}μs")
+		print(f"Average speed: {round(60/secPerEval)} evals / min")
+
+end = time.time()
+secPerEval = (end-start)/trials
+print(f"Average time to evaluate: {round(secPerEval * 1000000, 3)}μs")
+print(f"Average speed: {round(60/secPerEval)} evals / min")
 
 save(evolutions)
 
